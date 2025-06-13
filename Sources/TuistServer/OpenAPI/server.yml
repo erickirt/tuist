@@ -658,6 +658,50 @@ components:
               type: integer
               x-struct:
               x-validate:
+            files:
+              description: Compiled files associated with the build run.
+              items:
+                properties:
+                  compilation_duration:
+                    description: The duration of the compilation for the file in milliseconds.
+                    type: integer
+                    x-struct:
+                    x-validate:
+                  path:
+                    description: The file path where the issue occurred, relative to the project root.
+                    type: string
+                    x-struct:
+                    x-validate:
+                  project:
+                    description: The project name associated with the file.
+                    type: string
+                    x-struct:
+                    x-validate:
+                  target:
+                    description: The target name associated with the file.
+                    type: string
+                    x-struct:
+                    x-validate:
+                  type:
+                    description: The type of the file.
+                    enum:
+                      - swift
+                      - c
+                    type: string
+                    x-struct:
+                    x-validate:
+                required:
+                  - type
+                  - target
+                  - project
+                  - path
+                  - compilation_duration
+                type: object
+                x-struct:
+                x-validate:
+              type: array
+              x-struct:
+              x-validate:
             git_branch:
               description: The git branch.
               type: string
@@ -665,6 +709,16 @@ components:
               x-validate:
             git_commit_sha:
               description: The commit SHA.
+              type: string
+              x-struct:
+              x-validate:
+            git_ref:
+              description: The git reference.
+              type: string
+              x-struct:
+              x-validate:
+            git_remote_url_origin:
+              description: The git remote URL origin.
               type: string
               x-struct:
               x-validate:
@@ -804,6 +858,50 @@ components:
               type: string
               x-struct:
               x-validate:
+            targets:
+              description: Targets with build metadata associated with the build run.
+              items:
+                properties:
+                  build_duration:
+                    description: The build duration for the target in milliseconds.
+                    type: integer
+                    x-struct:
+                    x-validate:
+                  compilation_duration:
+                    description: The duration of the compilation for the target in milliseconds.
+                    type: integer
+                    x-struct:
+                    x-validate:
+                  name:
+                    description: The target name.
+                    type: string
+                    x-struct:
+                    x-validate:
+                  project:
+                    description: The target's project name.
+                    type: string
+                    x-struct:
+                    x-validate:
+                  status:
+                    description: The status of the target's build.
+                    enum:
+                      - success
+                      - failure
+                    type: string
+                    x-struct:
+                    x-validate:
+                required:
+                  - name
+                  - project
+                  - build_duration
+                  - compilation_duration
+                  - status
+                type: object
+                x-struct:
+                x-validate:
+              type: array
+              x-struct:
+              x-validate:
             type:
               description: The type of the run, which is 'build' in this case.
               enum:
@@ -906,21 +1004,30 @@ components:
       description: Represents a single build run.
       properties:
         duration:
+          description: The duration of the build run in milliseconds
           type: integer
           x-struct:
           x-validate:
         id:
+          description: The unique identifier of the build run
           type: string
           x-struct:
           x-validate:
         project_id:
+          description: The ID of the Tuist project associated with this build run
           type: integer
+          x-struct:
+          x-validate:
+        url:
+          description: The URL to access the build run
+          type: string
           x-struct:
           x-validate:
       required:
         - id
         - duration
         - project_id
+        - url
       title: RunsBuild
       type: object
       x-struct: Elixir.TuistWeb.API.Schemas.Runs.Build
@@ -1353,6 +1460,50 @@ components:
           type: integer
           x-struct:
           x-validate:
+        files:
+          description: Compiled files associated with the build run.
+          items:
+            properties:
+              compilation_duration:
+                description: The duration of the compilation for the file in milliseconds.
+                type: integer
+                x-struct:
+                x-validate:
+              path:
+                description: The file path where the issue occurred, relative to the project root.
+                type: string
+                x-struct:
+                x-validate:
+              project:
+                description: The project name associated with the file.
+                type: string
+                x-struct:
+                x-validate:
+              target:
+                description: The target name associated with the file.
+                type: string
+                x-struct:
+                x-validate:
+              type:
+                description: The type of the file.
+                enum:
+                  - swift
+                  - c
+                type: string
+                x-struct:
+                x-validate:
+            required:
+              - type
+              - target
+              - project
+              - path
+              - compilation_duration
+            type: object
+            x-struct:
+            x-validate:
+          type: array
+          x-struct:
+          x-validate:
         git_branch:
           description: The git branch.
           type: string
@@ -1360,6 +1511,16 @@ components:
           x-validate:
         git_commit_sha:
           description: The commit SHA.
+          type: string
+          x-struct:
+          x-validate:
+        git_ref:
+          description: The git reference.
+          type: string
+          x-struct:
+          x-validate:
+        git_remote_url_origin:
+          description: The git remote URL origin.
           type: string
           x-struct:
           x-validate:
@@ -1497,6 +1658,50 @@ components:
             - success
             - failure
           type: string
+          x-struct:
+          x-validate:
+        targets:
+          description: Targets with build metadata associated with the build run.
+          items:
+            properties:
+              build_duration:
+                description: The build duration for the target in milliseconds.
+                type: integer
+                x-struct:
+                x-validate:
+              compilation_duration:
+                description: The duration of the compilation for the target in milliseconds.
+                type: integer
+                x-struct:
+                x-validate:
+              name:
+                description: The target name.
+                type: string
+                x-struct:
+                x-validate:
+              project:
+                description: The target's project name.
+                type: string
+                x-struct:
+                x-validate:
+              status:
+                description: The status of the target's build.
+                enum:
+                  - success
+                  - failure
+                type: string
+                x-struct:
+                x-validate:
+            required:
+              - name
+              - project
+              - build_duration
+              - compilation_duration
+              - status
+            type: object
+            x-struct:
+            x-validate:
+          type: array
           x-struct:
           x-validate:
         type:
@@ -1754,6 +1959,11 @@ paths:
           application/json:
             schema:
               properties:
+                build_run_id:
+                  description: The build run identifier.
+                  type: string
+                  x-struct:
+                  x-validate:
                 client_id:
                   description: The client id of the command.
                   type: string
@@ -2389,7 +2599,8 @@ paths:
                 $ref: '#/components/schemas/Error'
           description: You need to be authenticated to update your account.
       summary: Create a new bundle with artifacts
-      tags: []
+      tags:
+        - Bundles
   /api/auth/device_code/{device_code}:
     get:
       callbacks: {}
@@ -4504,6 +4715,50 @@ paths:
                       type: integer
                       x-struct:
                       x-validate:
+                    files:
+                      description: Compiled files associated with the build run.
+                      items:
+                        properties:
+                          compilation_duration:
+                            description: The duration of the compilation for the file in milliseconds.
+                            type: integer
+                            x-struct:
+                            x-validate:
+                          path:
+                            description: The file path where the issue occurred, relative to the project root.
+                            type: string
+                            x-struct:
+                            x-validate:
+                          project:
+                            description: The project name associated with the file.
+                            type: string
+                            x-struct:
+                            x-validate:
+                          target:
+                            description: The target name associated with the file.
+                            type: string
+                            x-struct:
+                            x-validate:
+                          type:
+                            description: The type of the file.
+                            enum:
+                              - swift
+                              - c
+                            type: string
+                            x-struct:
+                            x-validate:
+                        required:
+                          - type
+                          - target
+                          - project
+                          - path
+                          - compilation_duration
+                        type: object
+                        x-struct:
+                        x-validate:
+                      type: array
+                      x-struct:
+                      x-validate:
                     git_branch:
                       description: The git branch.
                       type: string
@@ -4511,6 +4766,16 @@ paths:
                       x-validate:
                     git_commit_sha:
                       description: The commit SHA.
+                      type: string
+                      x-struct:
+                      x-validate:
+                    git_ref:
+                      description: The git reference.
+                      type: string
+                      x-struct:
+                      x-validate:
+                    git_remote_url_origin:
+                      description: The git remote URL origin.
                       type: string
                       x-struct:
                       x-validate:
@@ -4648,6 +4913,50 @@ paths:
                         - success
                         - failure
                       type: string
+                      x-struct:
+                      x-validate:
+                    targets:
+                      description: Targets with build metadata associated with the build run.
+                      items:
+                        properties:
+                          build_duration:
+                            description: The build duration for the target in milliseconds.
+                            type: integer
+                            x-struct:
+                            x-validate:
+                          compilation_duration:
+                            description: The duration of the compilation for the target in milliseconds.
+                            type: integer
+                            x-struct:
+                            x-validate:
+                          name:
+                            description: The target name.
+                            type: string
+                            x-struct:
+                            x-validate:
+                          project:
+                            description: The target's project name.
+                            type: string
+                            x-struct:
+                            x-validate:
+                          status:
+                            description: The status of the target's build.
+                            enum:
+                              - success
+                              - failure
+                            type: string
+                            x-struct:
+                            x-validate:
+                        required:
+                          - name
+                          - project
+                          - build_duration
+                          - compilation_duration
+                          - status
+                        type: object
+                        x-struct:
+                        x-validate:
+                      type: array
                       x-struct:
                       x-validate:
                     type:

@@ -100,7 +100,15 @@ final class GraphImportsLinter: GraphImportsLinting {
                 !$0.target.bundleId.hasSuffix(".generated.resources")
             }
             .filter {
-                !(target.target.product == .app && $0.target.product == .uiTests)
+                !(target.target.product == .uiTests && $0.target.product == .app)
+            }
+            .filter {
+                // Extensions depending on the app target are not redundant imports
+                guard target.target.product == .app else { return true }
+                switch $0.target.product {
+                case .appExtension, .stickerPackExtension, .messagesExtension, .extensionKitExtension: return false
+                default: return true
+                }
             }
             .map { targetDependency in
                 if case .external = targetDependency.graphTarget.project.type { return graphTraverser

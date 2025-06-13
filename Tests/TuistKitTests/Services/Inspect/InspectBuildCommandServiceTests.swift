@@ -3,6 +3,7 @@ import Foundation
 import Mockable
 import Testing
 import TuistCore
+import TuistGit
 import TuistLoader
 import TuistServer
 import TuistSupport
@@ -58,17 +59,21 @@ struct InspectBuildCommandServiceTests {
                 id: .any,
                 category: .any,
                 duration: .any,
+                files: .any,
                 gitBranch: .any,
                 gitCommitSHA: .any,
+                gitRef: .any,
+                gitRemoteURLOrigin: .any,
                 isCI: .any,
                 issues: .any,
                 modelIdentifier: .any,
                 macOSVersion: .any,
                 scheme: .any,
+                targets: .any,
                 xcodeVersion: .any,
                 status: .any
             )
-            .willReturn()
+            .willReturn(.test())
 
         given(machineEnvironment)
             .modelIdentifier()
@@ -94,9 +99,11 @@ struct InspectBuildCommandServiceTests {
 
         given(gitController)
             .gitInfo(workingDirectory: .any)
-            .willReturn((ref: nil, branch: nil, sha: nil))
+            .willReturn(.test())
 
         Matcher.register([XCActivityIssue].self)
+        Matcher.register([XCActivityBuildFile].self)
+        Matcher.register([XCActivityTarget].self)
     }
 
     @Test(.inTemporaryDirectory, .withMockedEnvironment())
@@ -116,19 +123,6 @@ struct InspectBuildCommandServiceTests {
             components: "\(UUID().uuidString).xcactivitylog"
         )
 
-        try await fileSystem.makeDirectory(at: buildLogsPath)
-        try await fileSystem.writeAsPlist(
-            XCLogStoreManifestPlist(
-                logs: [
-                    "id": XCLogStoreManifestPlist.ActivityLog(
-                        fileName: "id.xcactivitylog",
-                        timeStartedRecording: 10,
-                        timeStoppedRecording: 20
-                    ),
-                ]
-            ),
-            at: buildLogsPath.appending(component: "LogStoreManifest.plist")
-        )
         given(xcActivityLogController)
             .parse(.value(activityLogPath))
             .willReturn(
@@ -139,18 +133,35 @@ struct InspectBuildCommandServiceTests {
                     category: .incremental,
                     issues: [
                         .test(),
+                    ],
+                    files: [
+                        .test(),
+                    ],
+                    targets: [
+                        .test(),
                     ]
                 )
             )
-        given(xcActivityLogController).mostRecentActivityLogPath(
-            projectDerivedDataDirectory: .value(derivedDataPath),
-            after: .any
-        ).willReturn(activityLogPath)
+        given(xcActivityLogController).mostRecentActivityLogFile(
+            projectDerivedDataDirectory: .value(derivedDataPath)
+        ).willReturn(
+            .test(
+                path: activityLogPath,
+                timeStoppedRecording: Date(timeIntervalSinceReferenceDate: 20)
+            )
+        )
 
         gitController.reset()
         given(gitController)
             .gitInfo(workingDirectory: .any)
-            .willReturn((ref: nil, branch: "branch", sha: "sha"))
+            .willReturn(
+                .test(
+                    ref: "git-ref",
+                    branch: "branch",
+                    sha: "sha",
+                    remoteURLOrigin: "https://github.com/tuist/tuist"
+                )
+            )
 
         // When
         try await subject.run(path: nil)
@@ -163,15 +174,86 @@ struct InspectBuildCommandServiceTests {
                 id: .any,
                 category: .value(.incremental),
                 duration: .value(10000),
+                files: .value([.test()]),
                 gitBranch: .value("branch"),
                 gitCommitSHA: .value("sha"),
+                gitRef: .value("git-ref"),
+                gitRemoteURLOrigin: .value("https://github.com/tuist/tuist"),
                 isCI: .value(false),
                 issues: .value([.test()]),
                 modelIdentifier: .value("Mac15,3"),
                 macOSVersion: .value("13.2.0"),
                 scheme: .value("App"),
+                targets: .value([.test()]),
                 xcodeVersion: .value("16.0.0"),
                 status: .value(.failure)
+            )
+            .called(1)
+    }
+
+    @Test(.inTemporaryDirectory, .withMockedEnvironment())
+    func test_createsBuild_generated_after_initial_run() async throws {
+        // Given
+        let temporaryDirectory = try #require(FileSystem.temporaryTestDirectory)
+        let projectPath = temporaryDirectory.appending(component: "App.xcodeproj")
+        let mockedEnvironment = try #require(Environment.mocked)
+        mockedEnvironment.workspacePath = projectPath
+
+        let derivedDataPath = temporaryDirectory.appending(component: "derived-data")
+        given(derivedDataLocator)
+            .locate(for: .any)
+            .willReturn(derivedDataPath)
+        let buildLogsPath = derivedDataPath.appending(components: "Logs", "Build")
+        let activityLogPath = buildLogsPath.appending(
+            components: "\(UUID().uuidString).xcactivitylog"
+        )
+
+        given(xcActivityLogController)
+            .parse(.value(activityLogPath))
+            .willReturn(
+                .test()
+            )
+        var numberOfAttempts = 0
+        given(xcActivityLogController).mostRecentActivityLogFile(
+            projectDerivedDataDirectory: .value(derivedDataPath)
+        ).willProduce { _ in
+            numberOfAttempts = numberOfAttempts + 1
+            if numberOfAttempts > 2 {
+                return .test(path: activityLogPath, timeStoppedRecording: Date(timeIntervalSinceReferenceDate: 20))
+            } else {
+                return nil
+            }
+        }
+
+        gitController.reset()
+        given(gitController)
+            .gitInfo(workingDirectory: .any)
+            .willReturn(.test(ref: nil, branch: "branch", sha: "sha"))
+
+        // When
+        try await subject.run(path: nil)
+
+        // Then
+        verify(createBuildService)
+            .createBuild(
+                fullHandle: .any,
+                serverURL: .any,
+                id: .any,
+                category: .any,
+                duration: .any,
+                files: .any,
+                gitBranch: .any,
+                gitCommitSHA: .any,
+                gitRef: .any,
+                gitRemoteURLOrigin: .any,
+                isCI: .any,
+                issues: .any,
+                modelIdentifier: .any,
+                macOSVersion: .any,
+                scheme: .any,
+                targets: .any,
+                xcodeVersion: .any,
+                status: .any
             )
             .called(1)
     }
@@ -231,17 +313,16 @@ struct InspectBuildCommandServiceTests {
             ),
             at: buildLogsPath.appending(component: "LogStoreManifest.plist")
         )
-        given(xcActivityLogController).mostRecentActivityLogPath(
-            projectDerivedDataDirectory: .value(derivedDataPath),
-            after: .any
-        ).willReturn(activityLogPath)
+        given(xcActivityLogController).mostRecentActivityLogFile(
+            projectDerivedDataDirectory: .value(derivedDataPath)
+        ).willReturn(.test(path: activityLogPath))
         given(xcActivityLogController)
             .parse(.value(activityLogPath))
             .willReturn(.test())
 
         given(gitController)
             .gitInfo(workingDirectory: .any)
-            .willReturn((ref: nil, branch: nil, sha: nil))
+            .willReturn(.test())
 
         // When / Then
         try await subject.run(path: temporaryDirectory.pathString)
@@ -283,14 +364,13 @@ struct InspectBuildCommandServiceTests {
             given(xcActivityLogController)
                 .parse(.value(activityLogPath))
                 .willReturn(.test())
-            given(xcActivityLogController).mostRecentActivityLogPath(
-                projectDerivedDataDirectory: .value(derivedDataPath),
-                after: .any
-            ).willReturn(activityLogPath)
+            given(xcActivityLogController).mostRecentActivityLogFile(
+                projectDerivedDataDirectory: .value(derivedDataPath)
+            ).willReturn(.test(path: activityLogPath))
 
             given(gitController)
                 .gitInfo(workingDirectory: .any)
-                .willReturn((ref: nil, branch: nil, sha: nil))
+                .willReturn(.test())
 
             // When
             try await subject.run(path: temporaryDirectory.pathString)
@@ -331,14 +411,13 @@ struct InspectBuildCommandServiceTests {
         given(derivedDataLocator)
             .locate(for: .any)
             .willReturn(derivedDataPath)
-        given(xcActivityLogController).mostRecentActivityLogPath(
-            projectDerivedDataDirectory: .value(derivedDataPath),
-            after: .any
+        given(xcActivityLogController).mostRecentActivityLogFile(
+            projectDerivedDataDirectory: .value(derivedDataPath)
         ).willReturn(nil)
 
         given(gitController)
             .gitInfo(workingDirectory: .any)
-            .willReturn((ref: nil, branch: nil, sha: nil))
+            .willReturn(.test())
 
         // When / Then
         await #expect(
@@ -381,10 +460,9 @@ struct InspectBuildCommandServiceTests {
         given(xcActivityLogController)
             .parse(.value(activityLogPath))
             .willReturn(.test())
-        given(xcActivityLogController).mostRecentActivityLogPath(
-            projectDerivedDataDirectory: .value(derivedDataPath),
-            after: .any
-        ).willReturn(activityLogPath)
+        given(xcActivityLogController).mostRecentActivityLogFile(
+            projectDerivedDataDirectory: .value(derivedDataPath)
+        ).willReturn(.test(path: activityLogPath))
         configLoader.reset()
         given(configLoader)
             .loadConfig(path: .any)
@@ -392,7 +470,7 @@ struct InspectBuildCommandServiceTests {
 
         given(gitController)
             .gitInfo(workingDirectory: .any)
-            .willReturn((ref: nil, branch: nil, sha: nil))
+            .willReturn(.test())
 
         // When / Then
         await #expect(

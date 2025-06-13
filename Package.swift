@@ -20,6 +20,7 @@ let targets: [Target] = [
             pathDependency,
             swiftToolsSupportDependency,
             "FileSystem",
+            "TuistSupport",
         ]
     ),
     .executableTarget(
@@ -28,7 +29,9 @@ let targets: [Target] = [
             argumentParserDependency,
             pathDependency,
             swiftToolsSupportDependency,
+            pathDependency,
             "ProjectDescription",
+            "TuistSupport",
         ]
     ),
     .target(
@@ -271,6 +274,7 @@ let targets: [Target] = [
             "ProjectDescription",
             "FileSystem",
             "TuistRootDirectoryLocator",
+            "TuistGit",
         ],
         swiftSettings: [
             .define("MOCKING", .when(configuration: .debug)),
@@ -376,8 +380,21 @@ let targets: [Target] = [
             "TuistCore",
             "TuistSupport",
             "TuistRootDirectoryLocator",
+            "TuistGit",
             "FileSystem",
             "XCLogParser",
+            swiftToolsSupportDependency,
+            pathDependency,
+        ],
+        swiftSettings: [
+            .define("MOCKING", .when(configuration: .debug)),
+        ]
+    ),
+    .target(
+        name: "TuistGit",
+        dependencies: [
+            "TuistSupport",
+            "FileSystem",
             swiftToolsSupportDependency,
             pathDependency,
         ],
@@ -491,17 +508,17 @@ let package = Package(
             name: "TuistCache",
             targets: ["TuistCache"]
         ),
-        /// TuistGenerator
-        ///
-        /// A high level Xcode generator library
-        /// responsible for generating Xcode projects & workspaces.
-        ///
-        /// This library can be used in external tools that wish to
-        /// leverage Tuist's Xcode generation features.
-        ///
-        /// Note: This library should be treated as **unstable** as
-        ///       it is still under development and may include breaking
-        ///       changes in future releases.
+        // TuistGenerator
+        //
+        // A high level Xcode generator library
+        // responsible for generating Xcode projects & workspaces.
+        //
+        // This library can be used in external tools that wish to
+        // leverage Tuist's Xcode generation features.
+        //
+        // Note: This library should be treated as **unstable** as
+        //       it is still under development and may include breaking
+        //       changes in future releases.
         .library(
             name: "TuistGenerator",
             targets: ["TuistGenerator"]
@@ -546,7 +563,10 @@ let package = Package(
             .upToNextMajor(from: "0.2.2")
         ),
         .package(url: "https://github.com/crspybits/swift-log-file", .upToNextMajor(from: "0.1.0")),
-        .package(url: "https://github.com/tuist/XCLogParser", .upToNextMajor(from: "0.2.41")),
+        .package(
+            url: "https://github.com/MobileNativeFoundation/XCLogParser",
+            .upToNextMajor(from: "0.2.42")
+        ),
         .package(url: "https://github.com/davidahouse/XCResultKit", .upToNextMajor(from: "1.2.2")),
         .package(url: "https://github.com/tuist/Noora", .upToNextMajor(from: "0.40.1")),
         .package(
@@ -562,7 +582,7 @@ let package = Package(
         .package(url: "https://github.com/SwiftyJSON/SwiftyJSON", .upToNextMajor(from: "5.0.2")),
         .package(
             url: "https://github.com/tuist/Rosalind",
-            .upToNextMajor(from: "0.5.13")
+            .upToNextMajor(from: "0.5.31")
         ),
     ],
     targets: targets

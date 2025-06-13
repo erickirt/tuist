@@ -3,6 +3,7 @@ import Foundation
 import Path
 import TuistAutomation
 import TuistCore
+import TuistGit
 import TuistLoader
 import TuistServer
 import TuistSupport
@@ -97,24 +98,55 @@ struct InspectBuildCommandService {
         }
         let projectPath = try await projectPath(path)
         let currentWorkingDirectory = try await Environment.current.currentWorkingDirectory()
-        let projectDerivedDataDirectory: AbsolutePath! = try projectDerivedDataPath.map { try? AbsolutePath(
+        var projectDerivedDataDirectory: AbsolutePath! = try projectDerivedDataPath.map { try AbsolutePath(
             validating: $0,
             relativeTo: currentWorkingDirectory
-        ) } ?? derivedDataLocator.locate(for: projectPath)
-
-        guard let mostRecentActivityLogPath =
-            try await xcActivityLogController.mostRecentActivityLogPath(
-                projectDerivedDataDirectory: projectDerivedDataDirectory,
-                after: referenceDate
-            )
-        else {
-            throw InspectBuildCommandServiceError.mostRecentActivityLogNotFound(projectPath)
+        ) }
+        if projectDerivedDataDirectory == nil {
+            projectDerivedDataDirectory = try await derivedDataLocator.locate(for: projectPath)
         }
+
+        let mostRecentActivityLogPath = try await mostRecentActivityLogPath(
+            projectPath: projectPath,
+            projectDerivedDataDirectory: projectDerivedDataDirectory,
+            referenceDate: referenceDate
+        )
         let xcactivityLog = try await xcActivityLogController.parse(mostRecentActivityLogPath)
         try await createBuild(
             for: xcactivityLog,
             projectPath: projectPath
         )
+    }
+
+    private func mostRecentActivityLogPath(
+        projectPath: AbsolutePath,
+        projectDerivedDataDirectory: AbsolutePath,
+        referenceDate: Date
+    ) async throws -> AbsolutePath {
+        var mostRecentActivityLogPath: AbsolutePath!
+        try await withTimeout(
+            .seconds(1),
+            onTimeout: {
+                throw InspectBuildCommandServiceError.mostRecentActivityLogNotFound(projectPath)
+            }
+        ) {
+            while true {
+                if let mostRecentActivityLogFile = try await xcActivityLogController.mostRecentActivityLogFile(
+                    projectDerivedDataDirectory: projectDerivedDataDirectory
+                ), Environment.current.workspacePath == nil || (
+                    referenceDate.timeIntervalSinceReferenceDate - 10 ..< referenceDate.timeIntervalSinceReferenceDate
+                        + 10
+                ) ~= mostRecentActivityLogFile.timeStoppedRecording.timeIntervalSinceReferenceDate {
+                    mostRecentActivityLogPath = mostRecentActivityLogFile.path
+                }
+                if mostRecentActivityLogPath != nil {
+                    return
+                }
+
+                try await Task.sleep(for: .milliseconds(10))
+            }
+        }
+        return mostRecentActivityLogPath
     }
 
     private func createBuild(
@@ -129,27 +161,44 @@ struct InspectBuildCommandService {
             throw InspectBuildCommandServiceError.missingFullHandle
         }
 
-        let gitInfo = gitController.gitInfo(workingDirectory: projectPath)
-        let gitCommitSHA = gitInfo.sha
-        let gitBranch = gitInfo.branch
-        try await createBuildService.createBuild(
+        let gitInfo = try gitController.gitInfo(workingDirectory: projectPath)
+        let build = try await createBuildService.createBuild(
             fullHandle: fullHandle,
             serverURL: serverURL,
             id: xcactivityLog.mainSection.uniqueIdentifier,
             category: xcactivityLog.category,
             duration: Int(xcactivityLog.mainSection.timeStoppedRecording * 1000)
                 - Int(xcactivityLog.mainSection.timeStartedRecording * 1000),
-            gitBranch: gitBranch,
-            gitCommitSHA: gitCommitSHA,
+            files: xcactivityLog.files,
+            gitBranch: gitInfo.branch,
+            gitCommitSHA: gitInfo.sha,
+            gitRef: gitInfo.ref,
+            gitRemoteURLOrigin: gitInfo.remoteURLOrigin,
             isCI: Environment.current.isCI,
-            issues: xcactivityLog.issues,
+            issues: truncateIssuesIfNeeded(xcactivityLog.issues),
             modelIdentifier: machineEnvironment.modelIdentifier(),
             macOSVersion: machineEnvironment.macOSVersion,
             scheme: Environment.current.schemeName,
+            targets: xcactivityLog.targets,
             xcodeVersion: try await xcodeBuildController.version()?.description,
             status: xcactivityLog.buildStep.errorCount == 0 ? .success : .failure
         )
-        AlertController.current.success(.alert("Uploaded a build to the server."))
+        AlertController.current.success(
+            .alert("View the analyzed build at \(build.url.absoluteString)")
+        )
+    }
+
+    /// This method truncates the number of warnings to 1000 and the message to 1000 characters.
+    private func truncateIssuesIfNeeded(_ issues: [XCActivityIssue]) -> [XCActivityIssue] {
+        issues
+            .prefix(1000)
+            .map {
+                var issue = $0
+                if let message = issue.message, message.count > 1000 {
+                    issue.message = message.prefix(1000) + "..."
+                }
+                return issue
+            }
     }
 
     private func projectPath(_ path: String?) async throws -> AbsolutePath {
@@ -160,7 +209,7 @@ struct InspectBuildCommandService {
                 return workspacePath
             }
         } else {
-            let currentWorkingDirectory = try await fileSystem.currentWorkingDirectory()
+            let currentWorkingDirectory = try await Environment.current.currentWorkingDirectory()
             let basePath =
                 if let path {
                     try AbsolutePath(

@@ -7,6 +7,7 @@ import Path
 import Testing
 import TuistAnalytics
 import TuistCore
+import TuistGit
 import TuistSupport
 
 @testable import TuistKit
@@ -109,7 +110,8 @@ struct CommandEventFactoryTests {
             ],
             previewId: nil,
             resultBundlePath: nil,
-            ranAt: ranAt
+            ranAt: ranAt,
+            buildRunId: nil
         )
         let expectedEvent = CommandEvent(
             runId: "run-id",
@@ -189,7 +191,8 @@ struct CommandEventFactoryTests {
             ),
             previewId: nil,
             resultBundlePath: nil,
-            ranAt: ranAt
+            ranAt: ranAt,
+            buildRunId: nil
         )
 
         given(gitController)
@@ -201,12 +204,15 @@ struct CommandEventFactoryTests {
             .willReturn(true)
 
         given(gitController)
-            .urlOrigin(workingDirectory: .value(path))
-            .willReturn("https://github.com/tuist/tuist")
-
-        given(gitController)
             .gitInfo(workingDirectory: .value(path))
-            .willReturn((ref: "github-ref", branch: "main", sha: "commit-sha"))
+            .willReturn(
+                .test(
+                    ref: "github-ref",
+                    branch: "main",
+                    sha: "commit-sha",
+                    remoteURLOrigin: "https://github.com/tuist/tuist"
+                )
+            )
 
         given(gitController)
             .isInGitRepository(workingDirectory: .any)
@@ -257,12 +263,13 @@ struct CommandEventFactoryTests {
             selectiveTestingCacheItems: [:],
             previewId: nil,
             resultBundlePath: nil,
-            ranAt: Date()
+            ranAt: Date(),
+            buildRunId: nil
         )
 
         given(gitController)
             .gitInfo(workingDirectory: .value(path))
-            .willReturn((ref: nil, branch: nil, sha: nil))
+            .willReturn(.test())
 
         given(gitController)
             .isInGitRepository(workingDirectory: .any)
@@ -298,7 +305,8 @@ struct CommandEventFactoryTests {
             selectiveTestingCacheItems: [:],
             previewId: nil,
             resultBundlePath: nil,
-            ranAt: Date()
+            ranAt: Date(),
+            buildRunId: nil
         )
 
         given(gitController)
@@ -319,7 +327,7 @@ struct CommandEventFactoryTests {
 
         given(gitController)
             .gitInfo(workingDirectory: .value(path))
-            .willReturn((ref: nil, branch: nil, sha: "commit-sha"))
+            .willReturn(.test(ref: nil, branch: nil, sha: "commit-sha"))
 
         // When
         let event = try subject.make(
@@ -351,7 +359,8 @@ struct CommandEventFactoryTests {
             selectiveTestingCacheItems: [:],
             previewId: nil,
             resultBundlePath: nil,
-            ranAt: Date()
+            ranAt: Date(),
+            buildRunId: nil
         )
 
         given(gitController)
@@ -364,7 +373,7 @@ struct CommandEventFactoryTests {
 
         given(gitController)
             .gitInfo(workingDirectory: .value(path))
-            .willReturn((ref: nil, branch: nil, sha: nil))
+            .willReturn(.test())
 
         given(gitController)
             .hasUrlOrigin(workingDirectory: .value(path))

@@ -4,12 +4,12 @@ import Path
 import TuistAnalytics
 import TuistAsyncQueue
 import TuistCore
+import TuistGit
 import TuistSupport
 import XcodeGraph
 
 /// `CommandEventTagger` builds a `CommandEvent` by grouping information
-/// from different sources and tells `analyticsTagger` to send the event to a provider
-
+/// from different sources and tells `analyticsTagger` to send the event to a provider.
 public final class CommandEventFactory {
     private let machineEnvironment: MachineEnvironmentRetrieving
     private let gitController: GitControlling
@@ -26,17 +26,8 @@ public final class CommandEventFactory {
         from info: TrackableCommandInfo,
         path: AbsolutePath
     ) throws -> CommandEvent {
-        let gitInfo = gitController.gitInfo(workingDirectory: path)
-        let gitCommitSHA = gitInfo.sha
-        let gitBranch = gitInfo.branch
-        let gitRef = gitInfo.ref
+        let gitInfo = try gitController.gitInfo(workingDirectory: path)
 
-        var gitRemoteURLOrigin: String?
-        if gitController.isInGitRepository(workingDirectory: path) {
-            if try gitController.hasUrlOrigin(workingDirectory: path) {
-                gitRemoteURLOrigin = try gitController.urlOrigin(workingDirectory: path)
-            }
-        }
         let graph = info.graph.map {
             map(
                 $0,
@@ -58,14 +49,15 @@ public final class CommandEventFactory {
             machineHardwareName: machineEnvironment.hardwareName,
             isCI: Environment.current.isCI,
             status: info.status,
-            gitCommitSHA: gitCommitSHA,
-            gitRef: gitRef,
-            gitRemoteURLOrigin: gitRemoteURLOrigin,
-            gitBranch: gitBranch,
+            gitCommitSHA: gitInfo.sha,
+            gitRef: gitInfo.ref,
+            gitRemoteURLOrigin: gitInfo.remoteURLOrigin,
+            gitBranch: gitInfo.branch,
             graph: graph,
             previewId: info.previewId,
             resultBundlePath: info.resultBundlePath,
-            ranAt: info.ranAt
+            ranAt: info.ranAt,
+            buildRunId: info.buildRunId
         )
         return commandEvent
     }

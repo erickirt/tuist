@@ -2,6 +2,7 @@ import FileSystem
 import Foundation
 import Mockable
 import Path
+import TuistGit
 import TuistRootDirectoryLocator
 import TuistSupport
 import XCLogParser
@@ -10,12 +11,13 @@ import struct TSCBasic.RegEx
 
 @Mockable
 public protocol XCActivityLogControlling {
-    func mostRecentActivityLogPath(projectDerivedDataDirectory: AbsolutePath, after: Date)
-        async throws -> AbsolutePath?
+    func mostRecentActivityLogFile(projectDerivedDataDirectory: AbsolutePath)
+        async throws -> XCActivityLogFile?
     func buildTimesByTarget(projectDerivedDataDirectory: AbsolutePath) async throws -> [
-        String:
-            Double
+        String: Double
     ]
+    func buildTimesByTarget(activityLogPaths: [AbsolutePath]) async throws
+        -> [String: Double]
     func parse(_ path: AbsolutePath) async throws -> XCActivityLog
 }
 
@@ -23,15 +25,18 @@ public struct XCActivityLogController: XCActivityLogControlling {
     private let fileSystem: FileSystem
     private let environment: Environmenting
     private let rootDirectoryLocator: RootDirectoryLocating
+    private let gitController: GitControlling
 
     public init(
         fileSystem: FileSystem = FileSystem(),
         environment: Environmenting = Environment.current,
-        rootDirectoryLocator: RootDirectoryLocating = RootDirectoryLocator()
+        rootDirectoryLocator: RootDirectoryLocating = RootDirectoryLocator(),
+        gitController: GitControlling = GitController()
     ) {
         self.fileSystem = fileSystem
         self.environment = environment
         self.rootDirectoryLocator = rootDirectoryLocator
+        self.gitController = gitController
     }
 
     public func buildTimesByTarget(projectDerivedDataDirectory: AbsolutePath) async throws
@@ -52,6 +57,12 @@ public struct XCActivityLogController: XCActivityLogControlling {
             buildLogsPath.appending(components: ["\($0).xcactivitylog"])
         }
 
+        return try await buildTimesByTarget(activityLogPaths: activityLogPaths)
+    }
+
+    public func buildTimesByTarget(activityLogPaths: [AbsolutePath]) async throws
+        -> [String: Double]
+    {
         var buildTimes: [String: Double] = [:]
         for activityLogPath in activityLogPaths {
             let activityLog = try XCLogParser.ActivityParser().parseActivityLogInURL(
@@ -68,12 +79,13 @@ public struct XCActivityLogController: XCActivityLogControlling {
 
             for (targetName, targetBuildDuration) in flattenedXCLogParserBuildStep([buildStep])
                 .filter({ $0.title.starts(with: "Build target") }).map({
-                    ($0.signature, $0.duration)
+                    ($0.signature, $0.subSteps.reduce(into: 0) { duration, subStep in
+                        duration += subStep.compilationDuration * 1000 // From seconds to miliseconds
+                    })
                 })
             {
-                /**
-                 If a target supports multiple platforms, the time will persist is the time of the latest platform that we built.
-                 */
+                // If a target supports multiple platforms, the time will persist is the time of the latest platform that we
+                // built.
                 buildTimes[targetName] = targetBuildDuration
             }
         }
@@ -93,8 +105,8 @@ public struct XCActivityLogController: XCActivityLogControlling {
         }
     }
 
-    public func mostRecentActivityLogPath(projectDerivedDataDirectory: AbsolutePath, after: Date)
-        async throws -> AbsolutePath?
+    public func mostRecentActivityLogFile(projectDerivedDataDirectory: AbsolutePath)
+        async throws -> XCActivityLogFile?
     {
         let logsBuildDirectoryPath = projectDerivedDataDirectory.appending(
             components: "Logs", "Build"
@@ -109,17 +121,14 @@ public struct XCActivityLogController: XCActivityLogControlling {
 
         guard let latestLog = plist.logs.values.sorted(by: {
             $0.timeStoppedRecording > $1.timeStoppedRecording
-        }).first,
-            environment
-            .workspacePath == nil
-            || (
-                after.timeIntervalSinceReferenceDate - 10 ..< after.timeIntervalSinceReferenceDate
-                    + 10
-            ) ~= latestLog.timeStoppedRecording
+        }).first
         else {
             return nil
         }
-        return logsBuildDirectoryPath.appending(component: latestLog.fileName)
+        return XCActivityLogFile(
+            path: logsBuildDirectoryPath.appending(component: latestLog.fileName),
+            timeStoppedRecording: Date(timeIntervalSinceReferenceDate: latestLog.timeStoppedRecording)
+        )
     }
 
     public func parse(_ path: AbsolutePath) async throws -> XCActivityLog {
@@ -131,7 +140,7 @@ public struct XCActivityLogController: XCActivityLogControlling {
 
         let buildStep = try XCLogParser.ParserBuildSteps(
             omitWarningsDetails: false,
-            omitNotesDetails: true,
+            omitNotesDetails: false,
             truncLargeIssues: false
         )
         .parse(activityLog: activityLog)
@@ -140,7 +149,7 @@ public struct XCActivityLogController: XCActivityLogControlling {
         let targets = steps.filter { $0.type == .target }
             .filter { $0.title.contains("Build target ") }
             .map {
-                XCActivityTarget(
+                TargetWithStep(
                     name: $0.title.replacingOccurrences(of: "Build target ", with: ""),
                     step: $0
                 )
@@ -152,9 +161,12 @@ public struct XCActivityLogController: XCActivityLogControlling {
             },
             targets: targets
         )
+        let rootDirectory = try await rootDirectory()
 
-        let issues = try await issues(steps: steps, targets: targets)
+        let issues = try await issues(steps: steps, rootDirectory: rootDirectory)
             .uniqued()
+
+        let files = try await files(steps: steps, rootDirectory: rootDirectory)
 
         return XCActivityLog(
             version: activityLog.version,
@@ -167,44 +179,94 @@ public struct XCActivityLogController: XCActivityLogControlling {
                 errorCount: buildStep.errorCount
             ),
             category: category,
-            issues: issues
+            issues: issues,
+            files: files,
+            targets: targets.map {
+                let targetSteps = flattenedXCLogParserBuildStep([$0.step])
+                return XCActivityTarget(
+                    name: $0.name,
+                    project: targetSteps.first(where: { $0.project() != "" })?.project() ?? "",
+                    buildDuration: Int(($0.step.duration * 1000).rounded(.up)),
+                    compilationDuration: Int(($0.step.compilationDuration * 1000).rounded(.up)),
+                    status: targetSteps.allSatisfy { $0.errorCount == 0 } ? .success : .failure
+                )
+            }
         )
     }
 
-    private func issues(steps: [BuildStep], targets _: [XCActivityTarget]) async throws
+    private func rootDirectory() async throws -> AbsolutePath? {
+        let currentWorkingDirectory = try await environment.currentWorkingDirectory()
+        let workingDirectory = environment.workspacePath ?? currentWorkingDirectory
+        if gitController.isInGitRepository(workingDirectory: workingDirectory) {
+            return try gitController.topLevelGitDirectory(workingDirectory: workingDirectory)
+        } else {
+            return try await rootDirectoryLocator.locate(from: workingDirectory)
+        }
+    }
+
+    private func files(
+        steps: [BuildStep],
+        rootDirectory: AbsolutePath?
+    ) async throws
+        -> [XCActivityBuildFile]
+    {
+        let derivedDataDirectory = try await Environment.current.derivedDataDirectory()
+        return try await steps
+            .filter { $0.type == .detail }
+            .concurrentCompactMap { step -> XCActivityBuildFile? in
+                let type: XCActivityBuildFileType
+                switch step.detailStepType {
+                case .swiftCompilation:
+                    type = .swift
+                case .cCompilation:
+                    type = .c
+                default:
+                    if step.signature.hasPrefix("SwiftCompile ") {
+                        type = .swift
+                    } else {
+                        return nil
+                    }
+                }
+
+                // We want to ignore steps for emitting modules as we care about the compilation of the file itself.
+                guard !step.title.hasPrefix("Emit") else {
+                    return nil
+                }
+
+                if let absolutePath = try? AbsolutePath(
+                    validating: step.documentURL
+                        .replacingOccurrences(of: "file://", with: "")
+                ), derivedDataDirectory.isAncestor(of: absolutePath) {
+                    return nil
+                }
+
+                guard let path = try await path(of: step, rootDirectory: rootDirectory) else { return nil }
+
+                return XCActivityBuildFile(
+                    type: type,
+                    target: step.target(),
+                    project: step.project(),
+                    path: path,
+                    compilationDuration: Int((step.compilationDuration * 1000).rounded(.up))
+                )
+            }
+    }
+
+    private func issues(
+        steps: [BuildStep],
+        rootDirectory: AbsolutePath?
+    ) async throws
         -> [XCActivityIssue]
     {
         return
             try await steps
                 .compactMap { $0 }
-                .concurrentMap { try await xcactivityIssues($0) }
+                .concurrentMap { try await xcactivityIssues($0, rootDirectory: rootDirectory) }
                 .flatMap { $0 }
     }
 
-    private func xcactivityIssues(_ step: BuildStep) async throws -> [XCActivityIssue] {
-        let targetName =
-            (
-                try? RegEx(pattern: "in target '([^']+)'").matchGroups(in: step.signature)
-                    .first?.first
-            )?
-            .trimmingCharacters(in: .whitespaces) ?? ""
-        let projectName =
-            (
-                try? RegEx(pattern: "from project '([^']+)'").matchGroups(in: step.signature)
-                    .first?.first
-            )?
-            .trimmingCharacters(in: .whitespaces) ?? ""
-        let path: RelativePath?
-        if let file = try? AbsolutePath(
-            validating: step.documentURL
-                .replacingOccurrences(of: "file://", with: "")
-        ) {
-            let rootDirectory = try await rootDirectoryLocator.locate(from: file)
-            path = file.relative(to: rootDirectory ?? AbsolutePath.root)
-        } else {
-            path = nil
-        }
-
+    private func xcactivityIssues(_ step: BuildStep, rootDirectory: AbsolutePath?) async throws -> [XCActivityIssue] {
+        let path = try await path(of: step, rootDirectory: rootDirectory)
         let errors = step.errors ?? []
         let warnings = step.warnings ?? []
         return (errors + warnings).map { notice in
@@ -237,8 +299,8 @@ public struct XCActivityLogController: XCActivityLogControlling {
 
             return XCActivityIssue(
                 type: type,
-                target: targetName,
-                project: projectName,
+                target: step.target(),
+                project: step.project(),
                 title: step.title,
                 signature: step.signature,
                 stepType: XCActivityStepType(signature: step.signature),
@@ -252,7 +314,7 @@ public struct XCActivityLogController: XCActivityLogControlling {
         }
     }
 
-    private func buildCategory(steps: [BuildStep], targets: [XCActivityTarget])
+    private func buildCategory(steps: [BuildStep], targets: [TargetWithStep])
         -> XCActivityBuildCategory
     {
         let targetIdentifiers = targetIdentifiers(buildSteps: steps)
@@ -351,9 +413,38 @@ public struct XCActivityLogController: XCActivityLogControlling {
 
         return targetIdentifiers
     }
+
+    private func path(of step: BuildStep, rootDirectory: AbsolutePath?) async throws -> RelativePath? {
+        if let file = try? AbsolutePath(
+            validating: step.documentURL
+                .replacingOccurrences(of: "file://", with: "")
+        ) {
+            return file.relative(to: rootDirectory ?? AbsolutePath.root)
+        } else {
+            return nil
+        }
+    }
 }
 
-private struct XCActivityTarget {
+private struct TargetWithStep {
     let name: String
     let step: BuildStep
+}
+
+extension BuildStep {
+    fileprivate func target() -> String {
+        (
+            try? RegEx(pattern: "in target '([^']+)'").matchGroups(in: signature)
+                .first?.first
+        )?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+    }
+
+    fileprivate func project() -> String {
+        (
+            try? RegEx(pattern: "from project '([^']+)'").matchGroups(in: signature)
+                .first?.first
+        )?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+    }
 }

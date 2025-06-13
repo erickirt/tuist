@@ -26,6 +26,7 @@ public enum Module: String, CaseIterable {
     case cache = "TuistCache"
     case simulator = "TuistSimulator"
     case xcActivityLog = "TuistXCActivityLog"
+    case git = "TuistGit"
     case rootDirectoryLocator = "TuistRootDirectoryLocator"
 
     public var isRunnable: Bool {
@@ -230,6 +231,7 @@ public enum Module: String, CaseIterable {
                 ]
             case .tuistBenchmark:
                 [
+                    .target(name: Module.support.targetName),
                     .external(name: "SwiftToolsSupport"),
                     .external(name: "ArgumentParser"),
                     .external(name: "FileSystem"),
@@ -237,8 +239,10 @@ public enum Module: String, CaseIterable {
             case .tuistFixtureGenerator:
                 [
                     .target(name: Module.projectDescription.targetName),
+                    .target(name: Module.support.targetName),
                     .external(name: "SwiftToolsSupport"),
                     .external(name: "ArgumentParser"),
+                    .external(name: "Path"),
                 ]
             case .projectAutomation, .projectDescription:
                 []
@@ -338,6 +342,7 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.support.targetName),
                     .target(name: Module.rootDirectoryLocator.targetName),
                     .target(name: Module.projectDescription.targetName),
+                    .target(name: Module.git.targetName),
                     .external(name: "XcodeGraph"),
                     .external(name: "FileSystem"),
                     .external(name: "XcodeProj"),
@@ -438,6 +443,7 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.core.targetName),
                     .target(name: Module.support.targetName),
                     .target(name: Module.rootDirectoryLocator.targetName),
+                    .target(name: Module.git.targetName),
                     .external(name: "FileSystem"),
                     .external(name: "XCLogParser"),
                     .external(name: "SwiftToolsSupport"),
@@ -446,6 +452,12 @@ public enum Module: String, CaseIterable {
                 [
                     .target(name: Module.support.targetName),
                     .target(name: Module.core.targetName),
+                    .external(name: "FileSystem"),
+                ]
+            case .git:
+                [
+                    .target(name: Module.support.targetName),
+                    .external(name: "SwiftToolsSupport"),
                     .external(name: "FileSystem"),
                 ]
             }
@@ -497,6 +509,7 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.migration.targetName),
                     .target(name: Module.asyncQueue.targetName),
                     .target(name: Module.plugin.targetName),
+                    .target(name: Module.git.targetName),
                     .external(name: "ArgumentParser"),
                     .external(name: "GraphViz"),
                     .external(name: "AnyCodable"),
@@ -624,6 +637,10 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.testing.targetName),
                 ]
             case .rootDirectoryLocator:
+                [
+                    .target(name: Module.testing.targetName),
+                ]
+            case .git:
                 [
                     .target(name: Module.testing.targetName),
                 ]

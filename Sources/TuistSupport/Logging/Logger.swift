@@ -61,7 +61,7 @@ extension Logger {
         let fileLogger = try FileLogging(to: logFilePath.url)
 
         let baseLoggers = { (label: String) -> [any LogHandler] in
-            var fileLogHandler = FileLogHandler(label: label, fileLogger: fileLogger)
+            let fileLogHandler = FileLogHandler(label: label, fileLogger: fileLogger)
 
             var loggers: [any LogHandler] = [fileLogHandler]
             // OSLog is not needed in development.
@@ -111,7 +111,7 @@ extension LoggingConfig {
     }
 }
 
-// A `VerboseLogHandler` allows for a LogHandler to be initialised with the `debug` logLevel.
+/// A `VerboseLogHandler` allows for a LogHandler to be initialised with the `debug` logLevel.
 protocol VerboseLogHandler: LogHandler {
     @Sendable static func verbose(label: String) -> LogHandler
     @Sendable init(label: String)

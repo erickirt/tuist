@@ -1,5 +1,5 @@
 {
-  "originHash" : "714b1453e58d0da431c3a29db7338471e287b97d5d1cb66e8fc0e914b65b7a89",
+  "originHash" : "0804554ebb94898aa7ac8314bcb2b995b6de8fa9ddb1f6c350b6e5f9c52ae34e",
   "pins" : [
     {
       "identity" : "aexml",
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/tuist/FileSystem.git",
       "state" : {
-        "revision" : "ede5a7258454b393c628c3a740eba4a80ba51567",
-        "version" : "0.10.0"
+        "revision" : "95ae649dd2f2800ebcdf0dfca92233d59f87787b",
+        "version" : "0.10.2"
       }
     },
     {
@@ -204,8 +204,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/tuist/Rosalind",
       "state" : {
-        "revision" : "f21227dbb8f07547ff2542ba6f04e00c68dd2ce1",
-        "version" : "0.5.13"
+        "revision" : "93b7862a55a69a47cb713deb02024d26828f8e02",
+        "version" : "0.5.31"
       }
     },
     {
@@ -463,10 +463,10 @@
     {
       "identity" : "xclogparser",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/tuist/XCLogParser",
+      "location" : "https://github.com/MobileNativeFoundation/XCLogParser",
       "state" : {
-        "revision" : "7cf8c50e1b84effcda573bbf8b26bdd0a6b4614f",
-        "version" : "0.2.41"
+        "revision" : "5facacc3813b38514e759c5ce5aec4b0fdcfa8d1",
+        "version" : "0.2.42"
       }
     },
     {

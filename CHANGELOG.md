@@ -1,5 +1,114 @@
 # Changelog
 
+## 4.53.3 - 2025-06-13
+
+### CLI
+
+#### Fixed
+
+- Fix inspecting build stuck when the activity log has too many files [#7680](https://github.com/tuist/tuist/pull/7680) by [@fortmarek](https://github.com/fortmarek)
+
+### CLI (Server features)
+
+- no changes
+
+## 4.53.2 - 2025-06-13
+
+### CLI
+
+- no changes
+
+### CLI (Server features)
+
+- no changes
+
+## 4.53.1 - 2025-06-13
+
+### CLI
+
+#### Fixed
+
+- Merge the takeaways before printing [#7677](https://github.com/tuist/tuist/pull/7677) by [@pepicrft](https://github.com/pepicrft)
+- Ensure cache items are only fetched once [#7678](https://github.com/tuist/tuist/pull/7678) by [@fortmarek](https://github.com/fortmarek)
+
+### CLI (Server features)
+
+- no changes
+
+## 4.53.0 - 2025-06-12
+
+### CLI
+
+#### Added
+
+- Associate tuist xcodebuild metadata with inspected builds [#7670](https://github.com/tuist/tuist/pull/7670) by [@fortmarek](https://github.com/fortmarek)
+- Attach git remote url origin metadata to the inspected build [#7674](https://github.com/tuist/tuist/pull/7674) by [@fortmarek](https://github.com/fortmarek)
+
+#### Fixed
+
+- Poll for the latest activity log when it's not immediately available [#7671](https://github.com/tuist/tuist/pull/7671) by [@fortmarek](https://github.com/fortmarek)
+- Fix inspecting build with too many issues [#7676](https://github.com/tuist/tuist/pull/7676) by [@fortmarek](https://github.com/fortmarek)
+
+### CLI (Server features)
+
+- no changes
+
+## 4.52.2 - 2025-06-11
+
+### CLI
+
+- no changes
+
+### CLI (Server features)
+
+- no changes
+
+## 4.52.1 - 2025-06-10
+
+### CLI
+
+#### Changed
+
+- Bump Rosalind [#7654](https://github.com/tuist/tuist/pull/7654) by [@fortmarek](https://github.com/fortmarek)
+
+#### Fixed
+
+- Fix CircleCI PR variable [#7653](https://github.com/tuist/tuist/pull/7653) by [@cschmatzler](https://github.com/cschmatzler)
+- Fix app extensions redundant-imports checking [#7651](https://github.com/tuist/tuist/pull/7651) by [@PSKuznetsov](https://github.com/PSKuznetsov)
+- Attempt to fix token renewals [#7655](https://github.com/tuist/tuist/pull/7655) by [@pepicrft](https://github.com/pepicrft)
+- Further fix for issue where builds were not run when building for testing but not specifying a test plan [#7643](https://github.com/tuist/tuist/pull/7643) by [@cooksimo](https://github.com/cooksimo)
+- Fix paths in the reported build insights [#7662](https://github.com/tuist/tuist/pull/7662) by [@fortmarek](https://github.com/fortmarek)
+
+### CLI (Server features)
+
+- no changes
+
+## 4.52.0 - 2025-06-05
+
+### CLI
+
+#### Changed
+
+- Ignore missing glob directory for resources and additional files [#7638](https://github.com/tuist/tuist/pull/7638) by [@hiltonc](https://github.com/hiltonc)
+- Bump noora [#7644](https://github.com/tuist/tuist/pull/7644) by [@fortmarek](https://github.com/fortmarek)
+
+#### Added
+
+- Add buildOrder to Scheme's Build Action [#7609](https://github.com/tuist/tuist/pull/7609) by [@mattjung](https://github.com/mattjung)
+- Add file and module metadata to inspected builds [#7639](https://github.com/tuist/tuist/pull/7639) by [@fortmarek](https://github.com/fortmarek)
+
+#### Fixed
+
+- Fix running CI in forks [#7640](https://github.com/tuist/tuist/pull/7640) by [@fortmarek](https://github.com/fortmarek)
+- Remove redundant dependencies checking between App and UITest target [#7628](https://github.com/tuist/tuist/pull/7628) by [@rofle100lvl](https://github.com/rofle100lvl)
+- Fix App Device Build pipeline in forks [#7645](https://github.com/tuist/tuist/pull/7645) by [@fortmarek](https://github.com/fortmarek)
+- fix: use TOOLCHAIN_DIR for Swift include paths [#7650](https://github.com/tuist/tuist/pull/7650) by [@KrzysztofLema](https://github.com/KrzysztofLema)
+- Fix redundant import check for UITests with host application [#7649](https://github.com/tuist/tuist/pull/7649) by [@rofle100lvl](https://github.com/rofle100lvl)
+
+### CLI (Server features)
+
+- no changes
+
 ## 4.51.1 - 2025-06-04
 
 ### CLI
